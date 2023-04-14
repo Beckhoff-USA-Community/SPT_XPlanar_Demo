@@ -1,0 +1,37 @@
+# Visual Studio Files
+*.bak
+*.sln
+*.suo
+*.~u
+.vs
+UpgradeLog.htm
+
+# TwinCAT Files
+*.sln
+
+## .tmc file should not be ignored. Results in broken links.
+## .tpy file can be ignored. They are a holdover from CoDeSys and aren't used much by beckhoff
+### Source: https://infosys.beckhoff.com/english.php?content=../content/1033/tc3_sourcecontrol/18014398915785483.html&id=
+*.tpy
+
+## Compilation Process Artifact
+.tmcRefac
+
+## TwinCAT Archive Formats
+*.tnzip
+*.tszip
+*.tfzip
+
+## Build Files
+_CompileInfo
+_Boot
+_Libraries
+
+## TwinCAT Licence Files (Machine Specific)
+TrialLicense.tclrs
+
+## Project Specific Files (Optional)
+### Add folder or file path(s)
+
+
+PML_Base_PLC_Project/PLC_PML/Base/02_Components/99_EventDefinitions/BasicComponents_AlarmDefinitions_old.xlsx
