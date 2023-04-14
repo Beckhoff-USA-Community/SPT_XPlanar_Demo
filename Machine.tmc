@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<TcModuleClass>
+	<DataTypes>
+		<DataType>
+			<Name GUID="{1D7A2F00-9952-4410-A4B8-D1C1EACCD1F9}">MachineAlarms</Name>
+			<DisplayName TxtId=""><![CDATA[EventClass1_DisplayText]]></DisplayName>
+			<EventId>
+				<Name Id="1">InitReferenceEvent</Name>
+				<DisplayName TxtId=""><![CDATA[EventClass1Event1_DisplayText]]></DisplayName>
+				<Severity>Verbose</Severity>
+			</EventId>
+		</DataType>
+	</DataTypes>
+</TcModuleClass>

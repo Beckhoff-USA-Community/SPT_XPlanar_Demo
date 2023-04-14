@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="MAIN" Id="{67bf9621-bf6d-4011-9201-f00b5deecd73}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+    // Machine Module
+    Machine : FB_Machine := (Name := 'My First XPlanar Component Project');
+
+    //Control Source for running machine
+    ControlSourceHMI : FB_ControlSource;
+    ControlSourcePB  : FB_ControlSource;
+
+    //Local Vars
+    InitComplete : BOOL;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//All code runs from here.
+CyclicLogic();]]></ST>
+    </Implementation>
+    <Method Name="CyclicLogic" Id="{bcf41d00-5da5-4666-bbee-2c6dc3b03b2c}">
+      <Declaration><![CDATA[METHOD CyclicLogic
+VAR_INPUT
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF NOT InitComplete THEN
+    InitComplete := Initialize();
+    RETURN;
+END_IF
+
+//Machine support HMI & Production Monitor
+ControlSourcePB.CyclicLogic();
+ControlSourceHMI.CyclicLogic();
+
+//Machine Cyclic Logic
+Machine.CyclicLogic();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Initialize" Id="{cbfcae67-8d0b-4e6a-993b-8b00ee25c2d8}">
+      <Declaration><![CDATA[METHOD Initialize : BOOL
+VAR_INPUT
+END_VAR
+
+VAR
+    Result : BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//Top level machine initialization should happen here, in the main initialization METHOD. Each subsequent "layer" OF modules will be named within their respective "parent" intialize METHOD
+IF NOT ControlSourceHMI.Registered THEN
+    Result := Machine.RegisterExternalController(ControlSourceHMI);
+END_IF
+
+IF NOT ControlSourcePB.Registered THEN
+    Result := Machine.RegisterExternalController(ControlSourcePB);
+END_IF
+
+ControlSourceHMI.CyclicLogic();
+ControlSourcePB.CyclicLogic();
+Initialize := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="MAIN">
+      <LineId Id="78" Count="0" />
+      <LineId Id="8" Count="0" />
+    </LineIds>
+    <LineIds Name="MAIN.CyclicLogic">
+      <LineId Id="52" Count="9" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="MAIN.Initialize">
+      <LineId Id="66" Count="10" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_Machine" Id="{3881f85c-c61c-0aee-01ac-5e4b3083a0e4}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Machine EXTENDS FB_PackML_BaseModule
+VAR
+    (*Sub Modules*)
+    XPlanar : FB_XPlanar_EM := (Name := 'XPlaner EM');
+
+    (*Initial List of SubModules*)
+
+    //Add list of EMs here...
+    ipSubModules_Init : ARRAY[1..Parameters_PackML_Base.MAX_NO_OF_SUBMODULES] OF I_PackML_BaseModule := [XPlanar];
+
+    // Components
+
+    //Add list of components here...
+    ipComponents_Init : ARRAY[1..Parameters_PackML_Base.MAX_NO_OF_COMPONENTS] OF I_ComponentBase := [];
+
+    // Local and Simulation variables
+
+    (*Alarms for this module*)
+    MachineAlarms : ARRAY[1..MACHINE_ALARM_COUNT] OF FB_TcAlarm;
+    RecipeLoaded  : BOOL := FALSE;
+
+    //Pack Tags for System
+    {attribute 'OPC.UA.DA' := '1'}
+    _PackTags : ST_PackMLv30Ext; //ST_PackMLv30 is obsolete in Tc3_PackML_V2
+END_VAR
+
+VAR CONSTANT
+    //Alarm count constant
+    MACHINE_ALARM_COUNT : INT := 1; //Change this value based on how many alarms are in your machine
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Folder Name="I_CyclicFB" Id="{2ff7f2e9-7d2a-0873-0542-2f0e42ff93e7}" />
+    <Folder Name="Methods" Id="{7671bc73-9655-0eb6-3ba7-21c6c6606f71}">
+      <Folder Name="Acting States" Id="{a512b0f3-9db1-086d-1380-6f264a149c76}" />
+      <Folder Name="HMI" Id="{cad0a7a2-e4d4-0e5e-1efb-7585e4d17cf7}" />
+      <Folder Name="Waiting States" Id="{0b2a3753-fc4a-064a-06e9-1f06355629c2}" />
+    </Folder>
+    <Folder Name="Properties" Id="{a4738442-8f83-02db-2729-0dc132de931b}" />
+    <Method Name="CreateEvents" Id="{d3b77407-6546-0321-3d2a-ff0fb8fa0d17}" FolderPath="Methods\">
+      <Declaration><![CDATA[METHOD PROTECTED CreateEvents
+VAR_INPUT
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Add your event creation here
+F_CreateAllEventsInClass(Alarms     := MachineAlarms,
+                         ClassSize  := SIZEOF(TC_EVENTS.MachineAlarms),
+                         pInitEvent := ADR(TC_EVENTS.MachineAlarms.InitReferenceEvent),
+                         Prefix     := Name);
+
+// Super call to base
+SUPER^.CreateEvents();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CyclicLogic" Id="{d76f7a2d-ab26-00b2-3443-117a9b9463bb}" FolderPath="I_CyclicFB\">
+      <Declaration><![CDATA[METHOD CyclicLogic
+VAR
+    NewSeverity    : TCEventSeverity;
+    AlarmResponses : ARRAY[0..4] OF E_AlarmResponse; //Temporary response array	
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF NOT _InitComplete THEN
+    _InitComplete := Initialize();
+    RETURN;
+END_IF
+
+_CurrentAlarmSeverity := F_GetMaxSeverityRaised(MachineAlarms, NewSeverity);
+SUPER^.CyclicLogic();
+_PackTags.Status.StateCurrent    := _CurrentState;
+_PackTags.Status.UnitModeCurrent := _CurrentMode;
+UpdateModeTimers();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="HMIPermissions" Id="{ecb1f3da-512a-019e-1b70-9c80bb91f81f}" FolderPath="Methods\HMI\">
+      <Declaration><![CDATA[METHOD PROTECTED HMIPermissions
+VAR_INPUT
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//General Mode Based Monitoring and handling of HMI control
+CASE _CurrentMode OF
+    E_PMLUnitMode.ePMLUnitMode_Production:
+        CASE _CurrentState OF
+            E_PMLState.ePMLState_Stopped:
+                AllowHMIControl(ThisModuleOnly := TRUE); //Allow control for recovery
+            E_PMLState.ePMLState_Idle:
+                AllowHMIControl(ThisModuleOnly := TRUE); //Allow control for recovery
+            E_PMLState.ePMLState_Suspended:
+                BlockHMIControl();
+
+            E_PMLState.ePMLState_Execute:
+                BlockHMIControl();
+
+            E_PMLState.ePMLState_Aborted:
+                AllowHMIControl(ThisModuleOnly := TRUE); //Allow control for recovery
+            E_PMLState.ePMLState_Held:
+                AllowHMIControl(ThisModuleOnly := TRUE); //Allow control for recovery
+            E_PMLState.ePMLState_Complete:
+                BlockHMIControl();
+        END_CASE
+
+        AllowHMIControl(ThisModuleOnly := FALSE);
+
+    E_PMLUnitMode.ePMLUnitMode_Manual:
+        AllowHMIControl(ThisModuleOnly := FALSE);
+
+    E_PMLUnitMode.ePMLUnitMode_Maintenance:
+        AllowHMIControl(ThisModuleOnly := FALSE);
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Initialize" Id="{25a5e2cf-c377-0a73-3ee7-e58926193f6c}" FolderPath="Methods\">
+      <Declaration><![CDATA[METHOD PROTECTED Initialize : BOOL
+VAR
+    i : UDINT; //Generic iteration value
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Initialize := FALSE;
+CASE DescendantSequenceState OF
+    0:
+        // Define the interfaces to the different subunits (Must take place before SUPER^.initialize call)
+        FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_SUBMODULES DO
+            ipSubModules[i] := ipSubModules_Init[i];
+        END_FOR
+
+        FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_COMPONENTS DO
+            ipComponents[i] := ipComponents_Init[i];
+        END_FOR
+
+        _LogModeChanges         := FALSE;
+        _LogStateChanges        := FALSE;
+        DescendantSequenceState := DescendantSequenceState + 10;
+
+    10:
+        //Setup Custom modes here
+        DescendantSequenceState := DescendantSequenceState + 10;
+
+    20:
+        //Copy Mode names
+        FOR i := 1 TO 3 DO
+            ModeNames[i] := F_UnitModeToString(UDINT_TO_DINT(i));
+        END_FOR
+
+        DescendantSequenceState := DescendantSequenceState + 10;
+
+    30:
+        // Initialize Recipes 
+        DescendantSequenceState := DescendantSequenceState + 10;
+
+    40:
+        //Call the Super
+        IF SUPER^.Initialize() THEN
+            DescendantSequenceState := DescendantSequenceState + 10;
+        END_IF
+
+    //Setup axes Master
+    50:
+        Initialize := TRUE;
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="PackTags" Id="{77e9aedf-0fe3-03a9-2bc7-32710eb2cce1}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY PUBLIC PackTags : ST_PackMLv30Ext]]></Declaration>
+      <Get Name="Get" Id="{bcad2c73-cc74-03d5-131f-8409a77c7111}">
+        <Declaration><![CDATA[VAR
+END_VAR]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[PackTags := _PackTags;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="StopImmediate" Id="{409b4507-31a2-4d7d-a3cb-3e999ebbb9c1}">
+      <Declaration><![CDATA[//! @summary Provides fault reaction logic where the module state is driven to the <b>Stopping</b> state immediately
+METHOD PROTECTED StopImmediate
+
+//! @description No error is thrown by this fault reaction.
+
+//! @description This method is called by <c>ComponentMonitor()</c> or <c>SubModuleMonitor()</c> as required]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[ChangeState(E_PMLCommand.ePMLCommand_Stop);]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SubModuleMonitor" Id="{31fc2597-fcb0-0b10-1e5f-da609059540f}" FolderPath="Methods\">
+      <Declaration><![CDATA[METHOD PROTECTED SubModuleMonitor : BOOL
+VAR
+    AlarmResponses : ARRAY[0..4] OF E_AlarmResponse; //Temporary response array	
+END_VAR
+
+VAR
+    Result : BOOL;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[SubModuleMonitor := FALSE;
+
+// Check the sub Modules for Alarm Severity
+Result := SUPER^.SubModuleMonitor();
+
+//Check the alarms at the machine level
+_CurrentAlarmSeverity := F_GetMaxSeverityRaised(Alarms := MachineAlarms, CurrentSeverity := _CurrentAlarmSeverity);
+
+//Check the severity of the machine level alarms
+IF _CurrentState <> E_PMLState.ePMLState_Aborted AND _CurrentState <> E_PMLState.ePMLState_Aborting AND _CurrentState <> E_PMLState.ePMLState_Clearing AND
+   _CurrentState <> E_PMLState.ePMLState_Stopped AND _CurrentState <> E_PMLState.ePMLState_Stopping THEN
+    AlarmResponses := _ParentFaultResponseDefinitions;
+    CASE AlarmResponses[CurrentAlarmSeverity] OF
+        E_AlarmResponse.Abort_ImmediateError:
+            AbortImmediateError(Name, TRUE);
+
+        E_AlarmResponse.Abort_Immediate:
+            AbortImmediate();
+
+        E_AlarmResponse.Stop_Immediate:
+            StopImmediate();
+
+        E_AlarmResponse.Stop_Controlled:
+            StopControlled();
+
+        E_AlarmResponse.Hold_Immediate:
+            HoldImmediate();
+
+        E_AlarmResponse.Suspend_Immediate:
+            SuspendImmediate();
+
+        E_AlarmResponse.Suspend_Controlled:
+            SuspendControlled();
+
+        E_AlarmResponse.NoResponse:
+            ;
+    END_CASE
+ELSIF _CurrentState = E_PMLState.ePMLState_Stopped OR _CurrentState = E_PMLState.ePMLState_Stopping THEN
+    AlarmResponses := _ParentFaultResponseDefinitions;
+    CASE AlarmResponses[CurrentAlarmSeverity] OF
+        E_AlarmResponse.Abort_ImmediateError:
+            AbortImmediateError(Name, TRUE);
+
+        E_AlarmResponse.Abort_Immediate:
+            AbortImmediate();
+
+        E_AlarmResponse.NoResponse:
+            ;
+    END_CASE
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateModeTimers" Id="{91f1a558-1a41-0eb4-07de-cf88ff70f7d0}" FolderPath="Methods\">
+      <Declaration><![CDATA[METHOD UpdateModeTimers
+VAR
+    currentTime  : T_DCTIME64;
+    timeToUpdate : LREAL;
+END_VAR
+
+VAR_INST
+    lastTime  : T_DCTIME64 := F_GetActualDcTime64();
+    lastState : DINT;
+    lastMode  : DINT;
+END_VAR
+
+VAR
+    Result : UDINT;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF _PackTags.Status.StateCurrent <> lastState THEN
+    Result    := MEMSET(ADR(_PackTags.Admin.StateCurrentTime), 0, SIZEOF(_PackTags.Admin.StateCurrentTime));
+    lastState := _PackTags.Status.StateCurrent;
+END_IF
+
+IF _PackTags.Status.UnitModeCurrent <> lastMode THEN
+    Result   := MEMSET(ADR(_PackTags.Admin.ModeCurrentTime), 0, SIZEOF(_PackTags.Admin.ModeCurrentTime));
+    lastMode := _PackTags.Status.UnitModeCurrent;
+END_IF
+
+currentTime := F_GetActualDcTime64();
+IF lastTime <> 0 THEN
+    timeToUpdate := ULINT_TO_LREAL(currentTime - lastTime) / 1_000_000_000.0;
+END_IF
+
+// only seconds get added to the cumulative timers 
+IF timeToUpdate > 1 THEN
+    _PackTags.Admin.ModeCummulativeTime[_PackTags.Status.UnitModeCurrent] := _PackTags.Admin.ModeCummulativeTime[_PackTags.Status.UnitModeCurrent] + LREAL_TO_DINT(timeToUpdate);
+    _PackTags.Admin.ModeCurrentTime[_PackTags.Status.UnitModeCurrent]     := _PackTags.Admin.ModeCurrentTime[_PackTags.Status.UnitModeCurrent] + LREAL_TO_DINT(timeToUpdate);
+    _PackTags.Admin.StateCummulativeTime[_PackTags.Status.UnitModeCurrent, _PackTags.Status.StateCurrent]
+        := _PackTags.Admin.StateCummulativeTime[_PackTags.Status.UnitModeCurrent, _PackTags.Status.StateCurrent] + LREAL_TO_DINT(timeToUpdate);
+
+    _PackTags.Admin.StateCurrentTime[_PackTags.Status.UnitModeCurrent, _PackTags.Status.StateCurrent] :=
+        _PackTags.Admin.StateCurrentTime[_PackTags.Status.UnitModeCurrent, _PackTags.Status.StateCurrent] + LREAL_TO_DINT(timeToUpdate);
+
+    lastTime := currentTime;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Machine">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.CreateEvents">
+      <LineId Id="36" Count="6" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.CyclicLogic">
+      <LineId Id="97" Count="8" />
+      <LineId Id="25" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.HMIPermissions">
+      <LineId Id="119" Count="28" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.Initialize">
+      <LineId Id="165" Count="40" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.PackTags.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.StopImmediate">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.SubModuleMonitor">
+      <LineId Id="227" Count="48" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Machine.UpdateModeTimers">
+      <LineId Id="157" Count="25" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

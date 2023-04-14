@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_SpinStation" Id="{e182e32c-04f2-449d-8152-0e174ef107b9}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_SpinStation EXTENDS FB_XPlanarStationBase
+VAR_INPUT
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Method Name="Execute" Id="{1844efac-c007-4309-8d0b-ca7069be7833}">
+      <Declaration><![CDATA[METHOD Execute]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[SUPER^.Execute();  //Call the base station logic to handle sending and receiving of movers
+
+//When the station is in the Process mover state you can perform any application specific station logic
+IF StationState = E_XPlanarStationState.ProcessMover THEN
+	IF ipCurrentMover.Spin(NumOfTurns := 2) THEN
+		_StationComplete := TRUE;  //Set _StationComplete TRUE when done.  This will be automatically reset when the mover exits
+	END_IF
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_SpinStation">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_SpinStation.Execute">
+      <LineId Id="2" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="4" Count="0" />
+      <LineId Id="3" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="7" Count="1" />
+      <LineId Id="6" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
