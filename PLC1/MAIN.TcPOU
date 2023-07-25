@@ -1,7 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
   <POU Name="MAIN" Id="{67bf9621-bf6d-4011-9201-f00b5deecd73}" SpecialFunc="None">
-    <Declaration><![CDATA[PROGRAM MAIN
+    <Declaration><![CDATA[
+PROGRAM MAIN
 VAR
     // Machine Module
     Machine : FB_Machine := (Name := 'My First XPlanar Component Project');
@@ -14,7 +15,9 @@ VAR
     InitComplete : BOOL;
 END_VAR]]></Declaration>
     <Implementation>
-      <ST><![CDATA[//All code runs from here.
+      <ST><![CDATA[{warning 'Simulation Demo Only - Lag monitoring is disabled'}
+
+//All code runs from here.
 CyclicLogic();]]></ST>
     </Implementation>
     <Method Name="CyclicLogic" Id="{bcf41d00-5da5-4666-bbee-2c6dc3b03b2c}">
@@ -55,10 +58,14 @@ END_IF
 
 ControlSourceHMI.CyclicLogic();
 ControlSourcePB.CyclicLogic();
+
+ADSLOGSTR(ADSLOG_MSGTYPE_WARN, 'Lag Monitoring disabled', 'For simulation demo only',);
+
 Initialize := TRUE;]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="MAIN">
+      <LineId Id="91" Count="1" />
       <LineId Id="78" Count="0" />
       <LineId Id="8" Count="0" />
     </LineIds>
@@ -68,6 +75,9 @@ Initialize := TRUE;]]></ST>
     </LineIds>
     <LineIds Name="MAIN.Initialize">
       <LineId Id="66" Count="10" />
+      <LineId Id="84" Count="0" />
+      <LineId Id="83" Count="0" />
+      <LineId Id="85" Count="0" />
       <LineId Id="5" Count="0" />
     </LineIds>
   </POU>

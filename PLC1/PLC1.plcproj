@@ -89,10 +89,6 @@
       <DefaultResolution>SPT Event Logger, * (Beckhoff Automation LLC)</DefaultResolution>
       <Namespace>SPT_EventLogger</Namespace>
     </PlaceholderReference>
-    <PlaceholderReference Include="SPT_XPlanar">
-      <DefaultResolution>SPT_XPlanar, * (Beckhoff Automation LLC)</DefaultResolution>
-      <Namespace>SPT_XPlanar</Namespace>
-    </PlaceholderReference>
     <PlaceholderReference Include="System_VisuElemMeter">
       <DefaultResolution>VisuElemMeter, 3.5.13.0 (System)</DefaultResolution>
       <Namespace>VisuElemMeter</Namespace>
@@ -192,14 +188,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <LibraryReference Include="SPT_XPlanar,3.2.0,Beckhoff Automation LLC">
+      <Namespace>SPT_XPlanar</Namespace>
+    </LibraryReference>
     <LibraryReference Include="VisuSymbols,3.5.10.0,System">
       <Namespace>VisuSymbols</Namespace>
     </LibraryReference>
   </ItemGroup>
   <ItemGroup>
-    <PlaceholderResolution Include="SPT_XPlanar">
-      <Resolution>SPT_XPlanar, * (Beckhoff Automation LLC)</Resolution>
-    </PlaceholderResolution>
     <PlaceholderResolution Include="Tc3_XPlanarStandard">
       <Resolution>Tc3_XPlanarStandard, * (Beckhoff Automation GmbH)</Resolution>
     </PlaceholderResolution>
