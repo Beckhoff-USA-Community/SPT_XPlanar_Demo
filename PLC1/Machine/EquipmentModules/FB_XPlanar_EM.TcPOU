@@ -20,6 +20,8 @@ VAR
     ipComponents_Init : ARRAY[1..Parameters_PackML_Base.MAX_NO_OF_COMPONENTS] OF I_ComponentBase := [XPlanarTable, Station1, Station2, Station3];
 
     //Helper Vars
+	Movers			  : ARRAY[1..Tc3_XPlanarStandard.Params_XPlanar.moverCount] OF FB_XPlanarMover;
+	Tracks			  : ARRAY[1..Tc3_XPlanarStandard.Params_XPlanar.maxTrackCount] OF FB_XPlanarTrackSegment;
     ClearingState     : UDINT;
     ManualStart       : BOOL;
     TileCount         : UDINT;
@@ -260,82 +262,91 @@ END_VAR
       <Implementation>
         <ST><![CDATA[Initialize := FALSE;
 CASE DescendantSequenceState OF
-    0:
-        // Define the interfaces to the different subunits (Must take place before SUPER^.initialize call)
-        FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_SUBMODULES DO
-            ipSubModules[i] := ipSubModules_Init[i];
-        END_FOR
+	0:
+		// Define the interfaces to the different subunits (Must take place before SUPER^.initialize call)
+		FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_SUBMODULES DO
+			ipSubModules[i] := ipSubModules_Init[i];
+		END_FOR
 
-        FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_COMPONENTS DO
-            ipComponents[i] := ipComponents_Init[i];
-        END_FOR
+		FOR i := 1 TO SPT_BaseTypes.Parameters_PackML_Base.MAX_NO_OF_COMPONENTS DO
+			ipComponents[i] := ipComponents_Init[i];
+		END_FOR
 
-        _LogModeChanges         := FALSE;
-        _LogStateChanges        := FALSE;
-        DescendantSequenceState := DescendantSequenceState + 10;
+		_LogModeChanges			:= FALSE;
+		_LogStateChanges		:= FALSE;
+		DescendantSequenceState := DescendantSequenceState + 10;
 
-    10:
-        DescendantSequenceState := DescendantSequenceState + 10;
+	10:
+		//Set Mover and Track interfaces
+		FOR i := 1 TO Tc3_XPlanarStandard.Params_XPlanar.moverCount DO
+			Movers[i].MoverIndex := i;
+			ip.Movers[i]		  := Movers[i];
+		END_FOR
 
-    20:
-        //Copy Mode names
-        FOR i := 1 TO 3 DO
-            ModeNames[i] := F_UnitModeToString(UDINT_TO_DINT(i));
-        END_FOR
+		FOR i := 1 TO Tc3_XPlanarStandard.Params_XPlanar.maxTrackCount DO
+			ip.Tracks[i] := Tracks[i];
+		END_FOR
 
-        DescendantSequenceState := DescendantSequenceState + 10;
+		DescendantSequenceState := DescendantSequenceState + 10;
 
-    30:
-        //Call the Super
-        IF SUPER^.Initialize() THEN
-            DescendantSequenceState := DescendantSequenceState + 10;
-        END_IF
+	20:
+		//Copy Mode names
+		FOR i := 1 TO 3 DO
+			ModeNames[i] := F_UnitModeToString(UDINT_TO_DINT(i));
+		END_FOR
 
-    40:
-        IF SetupTrackSegments() THEN
-            DescendantSequenceState := DescendantSequenceState + 10;
-        END_IF
+		DescendantSequenceState := DescendantSequenceState + 10;
 
-    50:
-        IF SetupStations() THEN
-            DescendantSequenceState := DescendantSequenceState + 10;
-        END_IF
+	30:
+		//Call the Super
+		IF SUPER^.Initialize() THEN
+			DescendantSequenceState := DescendantSequenceState + 10;
+		END_IF
 
-    60:
-        stHaltDynamics.PathXY.fVelocity     := 500.0;
-        stHaltDynamics.PathXY.fAcceleration := 10000.0;
-        stHaltDynamics.PathXY.fDeceleration := 10000.0;
-        stHaltDynamics.PathXY.fJerk         := 100000.0;
-        stHaltDynamics.AxisX.fVelocity      := 500.0;
-        stHaltDynamics.AxisX.fAcceleration  := 10000.0;
-        stHaltDynamics.AxisX.fDeceleration  := 10000.0;
-        stHaltDynamics.AxisX.fJerk          := 100000.0;
-        stHaltDynamics.AxisY.fVelocity      := 500.0;
-        stHaltDynamics.AxisY.fAcceleration  := 10000.0;
-        stHaltDynamics.AxisY.fDeceleration  := 10000.0;
-        stHaltDynamics.AxisY.fJerk          := 100000.0;
-        stHaltDynamics.AxisZ.fVelocity      := 500.0;
-        stHaltDynamics.AxisZ.fAcceleration  := 10000.0;
-        stHaltDynamics.AxisZ.fDeceleration  := 10000.0;
-        stHaltDynamics.AxisZ.fJerk          := 100000.0;
-        stHaltDynamics.AxisA.fVelocity      := 10.0;
-        stHaltDynamics.AxisA.fAcceleration  := 100.0;
-        stHaltDynamics.AxisA.fDeceleration  := 100.0;
-        stHaltDynamics.AxisA.fJerk          := 100.0;
-        stHaltDynamics.AxisB.fVelocity      := 10.0;
-        stHaltDynamics.AxisB.fAcceleration  := 100.0;
-        stHaltDynamics.AxisB.fDeceleration  := 100.0;
-        stHaltDynamics.AxisB.fJerk          := 100.0;
-        stHaltDynamics.AxisC.fVelocity      := 36.0;
-        stHaltDynamics.AxisC.fAcceleration  := 360.0;
-        stHaltDynamics.AxisC.fDeceleration  := 360.0;
-        stHaltDynamics.AxisC.fJerk          := 360.0;
-		
-        FOR i := 1 TO Params_XPlanar.moverCount DO
-            ip.Movers[i].std.P_HaltDynamics   := stHaltDynamics;
-        END_FOR
+	40:
+		IF SetupTrackSegments() THEN
+			DescendantSequenceState := DescendantSequenceState + 10;
+		END_IF
 
-        Initialize                        := TRUE;
+	50:
+		IF SetupStations() THEN
+			DescendantSequenceState := DescendantSequenceState + 10;
+		END_IF
+
+	60:
+		stHaltDynamics.PathXY.fVelocity		:= 500.0;
+		stHaltDynamics.PathXY.fAcceleration := 10000.0;
+		stHaltDynamics.PathXY.fDeceleration := 10000.0;
+		stHaltDynamics.PathXY.fJerk			:= 100000.0;
+		stHaltDynamics.AxisX.fVelocity		:= 500.0;
+		stHaltDynamics.AxisX.fAcceleration	:= 10000.0;
+		stHaltDynamics.AxisX.fDeceleration	:= 10000.0;
+		stHaltDynamics.AxisX.fJerk			:= 100000.0;
+		stHaltDynamics.AxisY.fVelocity		:= 500.0;
+		stHaltDynamics.AxisY.fAcceleration	:= 10000.0;
+		stHaltDynamics.AxisY.fDeceleration	:= 10000.0;
+		stHaltDynamics.AxisY.fJerk			:= 100000.0;
+		stHaltDynamics.AxisZ.fVelocity		:= 500.0;
+		stHaltDynamics.AxisZ.fAcceleration	:= 10000.0;
+		stHaltDynamics.AxisZ.fDeceleration	:= 10000.0;
+		stHaltDynamics.AxisZ.fJerk			:= 100000.0;
+		stHaltDynamics.AxisA.fVelocity		:= 10.0;
+		stHaltDynamics.AxisA.fAcceleration	:= 100.0;
+		stHaltDynamics.AxisA.fDeceleration	:= 100.0;
+		stHaltDynamics.AxisA.fJerk			:= 100.0;
+		stHaltDynamics.AxisB.fVelocity		:= 10.0;
+		stHaltDynamics.AxisB.fAcceleration	:= 100.0;
+		stHaltDynamics.AxisB.fDeceleration	:= 100.0;
+		stHaltDynamics.AxisB.fJerk			:= 100.0;
+		stHaltDynamics.AxisC.fVelocity		:= 36.0;
+		stHaltDynamics.AxisC.fAcceleration	:= 360.0;
+		stHaltDynamics.AxisC.fDeceleration	:= 360.0;
+		stHaltDynamics.AxisC.fJerk			:= 360.0;
+		FOR i := 1 TO Params_XPlanar.moverCount DO
+			ip.Movers[i].std.P_HaltDynamics := stHaltDynamics;
+		END_FOR
+
+		Initialize := TRUE;
 END_CASE]]></ST>
       </Implementation>
     </Method>
@@ -749,11 +760,9 @@ SUPER^.Starting();]]></ST>
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.Initialize">
-      <LineId Id="1348" Count="71" />
-      <LineId Id="1439" Count="0" />
-      <LineId Id="1420" Count="0" />
-      <LineId Id="1423" Count="1" />
-      <LineId Id="1426" Count="1" />
+      <LineId Id="1461" Count="16" />
+      <LineId Id="1547" Count="0" />
+      <LineId Id="1478" Count="68" />
       <LineId Id="11" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.Resetting">
