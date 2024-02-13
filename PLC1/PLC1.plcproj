@@ -63,6 +63,12 @@
     <Compile Include="MAIN.TcPOU">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="NextMinorStep.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="NextStep.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PlcTask.TcTTO">
       <SubType>Code</SubType>
     </Compile>
@@ -92,6 +98,12 @@
     <PlaceholderReference Include="SPT_XPlanar">
       <DefaultResolution>SPT_XPlanar, * (Beckhoff Automation LLC)</DefaultResolution>
       <Namespace>SPT_XPlanar</Namespace>
+      <Parameters>
+        <Parameter ListName="STATIONPARAMETERS" xmlns="">
+          <Key>ENABLECOMMANDTRACING</Key>
+          <Value>TRUE</Value>
+        </Parameter>
+      </Parameters>
     </PlaceholderReference>
     <PlaceholderReference Include="System_VisuElemMeter">
       <DefaultResolution>VisuElemMeter, 3.5.13.0 (System)</DefaultResolution>
@@ -155,10 +167,6 @@
       <DefaultResolution>Tc3_EventLogger, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_EventLogger</Namespace>
     </PlaceholderReference>
-    <PlaceholderReference Include="Tc3_Mc3PlanarMotion">
-      <DefaultResolution>Tc3_Mc3PlanarMotion, * (Beckhoff Automation GmbH)</DefaultResolution>
-      <Namespace>Tc3_Mc3PlanarMotion</Namespace>
-    </PlaceholderReference>
     <PlaceholderReference Include="Tc3_Module">
       <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_Module</Namespace>
@@ -166,20 +174,6 @@
     <PlaceholderReference Include="Tc3_PackML_V2">
       <DefaultResolution>Tc3_PackML_V2, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_PackML_V2</Namespace>
-    </PlaceholderReference>
-    <PlaceholderReference Include="Tc3_Physics">
-      <DefaultResolution>Tc3_Physics, * (Beckhoff Automation GmbH)</DefaultResolution>
-      <Namespace>Tc3_Physics</Namespace>
-    </PlaceholderReference>
-    <PlaceholderReference Include="Tc3_XPlanarStandard">
-      <DefaultResolution>Tc3_XPlanarStandard, * (Beckhoff Automation GmbH)</DefaultResolution>
-      <Namespace>Tc3_XPlanarStandard</Namespace>
-      <Parameters>
-        <Parameter ListName="PARAMS_XPLANAR" xmlns="">
-          <Key>MAXTRACKCOUNT</Key>
-          <Value>3</Value>
-        </Parameter>
-      </Parameters>
     </PlaceholderReference>
     <PlaceholderReference Include="Tc3_XPlanarUtility">
       <DefaultResolution>Tc3_XPlanarUtility, * (Beckhoff Automation GmbH &amp; Co. KG)</DefaultResolution>
@@ -192,13 +186,34 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <LibraryReference Include="Tc3_Mc3PlanarMotion,newest,Beckhoff Automation GmbH">
+      <Namespace>Tc3_Mc3PlanarMotion</Namespace>
+    </LibraryReference>
+    <LibraryReference Include="Tc3_Physics,newest,Beckhoff Automation GmbH">
+      <Namespace>Tc3_Physics</Namespace>
+    </LibraryReference>
+    <LibraryReference Include="Tc3_XPlanarStandard,newest,Beckhoff Automation GmbH">
+      <Namespace>Tc3_XPlanarStandard</Namespace>
+      <Parameters>
+        <Parameter ListName="PARAMS_XPLANAR" xmlns="">
+          <Key>MAXTRACKCOUNT</Key>
+          <Value>4</Value>
+        </Parameter>
+      </Parameters>
+    </LibraryReference>
     <LibraryReference Include="VisuSymbols,3.5.10.0,System">
       <Namespace>VisuSymbols</Namespace>
     </LibraryReference>
   </ItemGroup>
   <ItemGroup>
+    <PlaceholderResolution Include="SPT Base Types">
+      <Resolution>SPT Base Types, * (Beckhoff Automation LLC)</Resolution>
+    </PlaceholderResolution>
     <PlaceholderResolution Include="Tc3_XPlanarStandard">
       <Resolution>Tc3_XPlanarStandard, * (Beckhoff Automation GmbH)</Resolution>
+    </PlaceholderResolution>
+    <PlaceholderResolution Include="Tc3_XPlanarUtility">
+      <Resolution>Tc3_XPlanarUtility, * (Beckhoff Automation GmbH &amp; Co. KG)</Resolution>
     </PlaceholderResolution>
   </ItemGroup>
   <ProjectExtensions>

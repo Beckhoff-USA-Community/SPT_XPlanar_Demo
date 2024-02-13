@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="NextStep" Id="{4ab0e0b1-cc54-4466-88b3-4c3f17eb8b0c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION NextStep : UDINT
+VAR_INPUT
+	StateVar	: UDINT;
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[NextStep := ((StateVar / 10)* 10) + 10;]]></ST>
+    </Implementation>
+    <LineIds Name="NextStep">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

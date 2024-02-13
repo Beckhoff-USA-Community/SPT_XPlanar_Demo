@@ -22,9 +22,6 @@ VAR
     //Helper Vars
 	Movers			  : ARRAY[1..Tc3_XPlanarStandard.Params_XPlanar.moverCount] OF FB_XPlanarMover;
 	Tracks			  : ARRAY[1..Tc3_XPlanarStandard.Params_XPlanar.maxTrackCount] OF FB_XPlanarTrackSegment;
-    ClearingState     : UDINT;
-    ManualStart       : BOOL;
-    TileCount         : UDINT;
 END_VAR]]></Declaration>
     <Implementation>
       <ST><![CDATA[]]></ST>
@@ -68,12 +65,12 @@ This method is called as required by <c>StateControl()</c>
         <ST><![CDATA[CASE DescendantSequenceState OF
     0:
         NoStateTasksToComplete  := FALSE;
-        DescendantSequenceState := DescendantSequenceState + 10;
+        DescendantSequenceState := NextStep(DescendantSequenceState);
 
     10:
         IF XPlanarTable.Abort() THEN
             StateTasksComplete      := TRUE;
-            DescendantSequenceState := DescendantSequenceState + 10;
+            DescendantSequenceState := NextStep(DescendantSequenceState);
         END_IF
 
     20:
@@ -121,28 +118,27 @@ This method is called as required by <c>StateControl()</c>
 				Station2.Reset();
 				Station3.Reset();
 			
-                DescendantSequenceState := DescendantSequenceState + 10;
+                DescendantSequenceState := NextStep(DescendantSequenceState);
 
             10: //Check for Track initialization
                 IF NOT XPlanarTable.TracksInitialized THEN
-                    DescendantSequenceState := DescendantSequenceState + 1;
+                    DescendantSequenceState := NextMinorStep(DescendantSequenceState);
                 ELSE
-                    DescendantSequenceState := DescendantSequenceState + 10;
+                    DescendantSequenceState := NextStep(DescendantSequenceState);
                 END_IF
 
             11: //Build Track Segments
                 IF XPlanarTable.BuildTracks() THEN
                     IF NOT XPlanarTable.Error THEN
-                        DescendantSequenceState := 20;
+                      DescendantSequenceState := NextStep(DescendantSequenceState);
                     ELSE
                         DescendantSequenceState := 999;
                     END_IF;
                 END_IF
 
-            20:
-                //Enable Group
+            20: //Enable Group
                 IF XPlanarTable.EnableGroup() THEN
-                    DescendantSequenceState := DescendantSequenceState + 10;
+                    DescendantSequenceState := NextStep(DescendantSequenceState);
                 END_IF
 
             30:
@@ -354,8 +350,11 @@ END_CASE]]></ST>
       <Declaration><![CDATA[//! @summary This method contains code which will execute when this PackML module is in the <b>Resetting</b> state
 METHOD PROTECTED Resetting
 VAR
-    i               : UDINT;
-    SubModulesReady : BOOL := TRUE;
+	SubModulesReady : BOOL := TRUE;
+END_VAR
+
+VAR_INST
+	i : UDINT;
 END_VAR
 
 (*! <description> <b>Note:</b> The <i>Reset</i> command can also be thought of as an <i>enable</i> depite the ambiguity in the naming of the <i>Clearing</i> state.
@@ -379,28 +378,46 @@ This method is called as required by <c>StateControl()</c>
 *)]]></Declaration>
       <Implementation>
         <ST><![CDATA[CASE _CurrentMode OF
-    E_PMLUnitMode.ePMLUnitMode_Production:
+	E_PMLUnitMode.ePMLUnitMode_Production:
 		CASE DescendantSequenceState OF
 			0: //Init
-				NoStateTasksToComplete  := FALSE;
-				DescendantSequenceState := DescendantSequenceState + 10;
-		
+				i						:= 1;
+				NoStateTasksToComplete	:= FALSE;
+				DescendantSequenceState := NextStep(DescendantSequenceState);
+
 			10: //Reset XPlanar System
 				IF XPlanarTable.Reset() THEN
-					DescendantSequenceState := DescendantSequenceState + 10;
+					DescendantSequenceState := NextStep(DescendantSequenceState);
 				END_IF
-		
+
 			20: //Enable Tracks
-				IF XplanarTable.EnableTracks(TRUE) THEN
-					DescendantSequenceState := DescendantSequenceState + 10;
+				IF XplanarTable.EnableTracks(FALSE) THEN
+					DescendantSequenceState := NextStep(DescendantSequenceState);
 				END_IF
-				
+
 			30: //Enable Movers
-				IF XPlanarTable.EnableMovers(TRUE) THEN
-					DescendantSequenceState := DescendantSequenceState + 10;
+				IF XPlanarTable.EnableMovers(FALSE) THEN
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF
+
+			40: //Check Mover Angle
+				IF i <= Params_XPlanar.moverCount THEN
+					IF ip.Movers[1].SquareUp() THEN
+						DescendantSequenceState := NextMinorStep(DescendantSequenceState);
+					END_IF
+				ELSE
+					DescendantSequenceState := NextStep(DescendantSequenceState);
 				END_IF
 				
-			40: //Clearing complete
+			41: //CheckMoverCount
+				IF i <= Params_XPlanar.moverCount THEN
+					i := i + 1;
+					DescendantSequenceState := 40;
+				ELSE
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF				
+
+			50: //Clearing complete
 				StateTasksComplete := TRUE;
 		END_CASE
 END_CASE
@@ -568,8 +585,59 @@ CASE nSegmentIndex OF
 		END_IF
 
 		nSegmentIndex := nSegmentIndex + 1;
-
+		
 	4:
+		ip.Tracks[nSegmentIndex].ID := nSegmentIndex;
+		IF ip.Tracks[nSegmentIndex].TrackTable.ClearTrackTable() THEN
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_Start,
+																		   E_PointOption.none,
+																		   100.0,
+																		   100.0,
+																		   0.0);
+
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_End,
+																		   E_PointOption.none,
+																		   100.0,
+																		   500.0,
+																		   0.0);
+
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_Start,
+																		   E_PointOption.none,
+																		   240.0,
+																		   620.0,
+																		   0.0);
+
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_End,
+																		   E_PointOption.none,
+																		   780.0,
+																		   620.0,
+																		   0.0);
+
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_Start,
+																		   E_PointOption.none,
+																		   860.0,
+																		   480.0,
+																		   0.0);
+
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Line_End,
+																		   E_PointOption.none,
+																		   860.0,
+																		   240.0,
+																		   0.0);
+																		   
+			ResultAddPoint := ip.Tracks[nSegmentIndex].TrackTable.AddPoint(E_PointType.Point,
+																		   E_PointOption.none,
+																		   860.0,
+																		   240.0,
+																		   0.0);																
+
+			ip.Tracks[nSegmentIndex].TrackTable.P_CloseTheLoop	 := FALSE;
+			ip.Tracks[nSegmentIndex].TrackTable.P_EndAtTrack	 := ip.Tracks[1].std;
+		END_IF
+
+		nSegmentIndex := nSegmentIndex + 1;		
+
+	5:
 		nSegmentIndex	   := 0;
 		SetupTrackSegments := TRUE;
 END_CASE]]></ST>
@@ -602,119 +670,71 @@ VAR_INST
 END_VAR]]></Declaration>
       <Implementation>
         <ST><![CDATA[CASE _CurrentMode OF
-    E_PMLUnitMode.ePMLUnitMode_Production:
-        CASE DescendantSequenceState OF
-            0:
-                NoStateTasksToComplete  := FALSE;
-                DescendantSequenceState := 10;
-                StationNumber           := 1;
-                i                       := 1;
-                JoinState               := 0;
+	E_PMLUnitMode.ePMLUnitMode_Production:
+		CASE DescendantSequenceState OF
+			0:
+				NoStateTasksToComplete	:= FALSE;
+				DescendantSequenceState := 10;
+				StationNumber			:= 1;
+				i						:= 1;
+				JoinState				:= 0;
 
-            10: //Prepare stations that already have movers
-				IF i <= Params_XPlanar.maxNumStation THEN
-					IF ip.Stations[i].Recover() THEN
-						i := i + 1;
-					END_IF
-				ELSE
-					i := 1;
-					DescendantSequenceState := DescendantSequenceState + 10;
-				END_IF
-				
-			20: //Check for any un-handled movers
-				JoinState               := 0;
+			10: //Clean Up Mover Queues
 				FOR i := 1 TO Params_XPlanar.moverCount DO
-					IF ip.Movers[i].std.P_CommandMode <> MC_PLANAR_MOVER_COMMAND_MODE.OnTrack THEN
-						MoveStationNeeded[i] := TRUE;
-						JoinStationNeeded[i] := TRUE;
-					ELSE
-						MoveStationNeeded[i] := FALSE;
-						JoinStationNeeded[i] := FALSE;
-					END_IF
+					ip.Movers[i].Destination := 0;
 				END_FOR
 
-				i := 1;
-				DescendantSequenceState := DescendantSequenceState + 10;
+				FOR i := 1 TO Params_XPlanar.maxNumStation DO
+					ip.Stations[i].MoverQueue.Dequeue();
+				END_FOR
 
-            30:
-                IF JoinStationNeeded[i] THEN
-                    CASE JoinState OF
-                        0:
-                            IF ip.Movers[i].std.P_ActPosition.x < 360 THEN
-                                JoinTrackNum := 1;
-                                IF ip.Movers[i].std.P_ActPosition.y < 360 THEN
-                                    MoveStationNum[i] := 1;
-                                ELSE
-                                    MoveStationNum[i] := 3;
-                                END_IF
-                            ELSE
-                                JoinTrackNum := 3;
-                                IF ip.Movers[i].std.P_ActPosition.y > 360 THEN
-                                    MoveStationNum[i] := 3;
-                                ELSE
-                                    MoveStationNum[i] := 1;
-                                END_IF
-                            END_IF
+				i						:= 1;
+				DescendantSequenceState := NextStep(DescendantSequenceState);
 
-                            JoinState := 10;
+			20: //Join Movers to recovery track
+				IF i <= Params_XPlanar.moverCount THEN
+					IF ip.Movers[i].JoinTrack(ip.Tracks[4]) THEN
+						DescendantSequenceState := NextMinorStep(DescendantSequenceState);
+					END_IF
+				ELSE
+					i						:= 1;
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF
+				
+			21: //Check Mover Count
+				IF i <= Params_XPlanar.moverCount THEN
+ 					i := i + 1;
+					DescendantSequenceState := 20;
+				ELSE
+					i						:= 1;
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF					
 
-                        10:
-                            IF ip.Movers[i].JoinTrack(ip.Tracks[JoinTrackNum]) THEN
-                                IF i < Params_XPlanar.moverCount THEN
-                                    i := i + 1;
-                                ELSE
-                                    DescendantSequenceState := DescendantSequenceState + 10;
-                                    i                       := 1;
-                                    MoveState               := 0;
-                                END_IF
+			30: //Send Movers around to station 1
+				IF i <= Params_XPlanar.moverCount THEN
+					IF ip.Movers[i].SendToStation(ip.Stations[1]) THEN
+						DescendantSequenceState := NextMinorStep(DescendantSequenceState);
+					END_IF
+				ELSE
+					i						:= 1;
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF
+				
+			31: //Check Mover Count
+				IF i <= Params_XPlanar.moverCount THEN
+ 					i := i + 1;
+					DescendantSequenceState := 30;
+				ELSE
+					i						:= 1;
+					DescendantSequenceState := NextStep(DescendantSequenceState);
+				END_IF	
 
-                                JoinState := 0;
-                            END_IF
-                    END_CASE
-                ELSE
-                    IF i < Params_XPlanar.moverCount THEN
-                        i         := i + 1;
-                        JoinState := 0;
-                    ELSE
-                        i                       := 1;
-                        MoveState               := 0;
-                        DescendantSequenceState := DescendantSequenceState + 10;
-                    END_IF
-                END_IF
+			40:
+				StateTasksComplete := TRUE;
+		END_CASE
 
-            40:
-                IF MoveStationNeeded[i] THEN
-                    CASE MoveState OF
-                        0:
-                            IF ip.Movers[i].SendToStation(ip.Stations[MoveStationNum[i]]) THEN
-                                MoveState := 10;
-                            END_IF
-
-                        10:
-                            IF i < Params_XPlanar.moverCount THEN
-                                i         := i + 1;
-                                MoveState := 0;
-                            ELSE
-                                i                       := 1;
-                                MoveState               := 0;
-                                DescendantSequenceState := DescendantSequenceState + 10;
-                            END_IF
-                    END_CASE
-                ELSE
-                    IF i < Params_XPlanar.moverCount THEN
-                        i         := i + 1;
-                        MoveState := 0;
-                    ELSE
-                        DescendantSequenceState := DescendantSequenceState + 10;
-                    END_IF
-                END_IF
-
-            50:
-                StateTasksComplete := TRUE;
-        END_CASE
-
-    E_PMLUnitMode.ePMLUnitMode_Manual:
-        ;
+	E_PMLUnitMode.ePMLUnitMode_Manual:
+		;
 END_CASE
 
 SUPER^.Starting();]]></ST>
@@ -734,7 +754,8 @@ SUPER^.Starting();]]></ST>
       <LineId Id="534" Count="5" />
       <LineId Id="609" Count="2" />
       <LineId Id="638" Count="0" />
-      <LineId Id="540" Count="22" />
+      <LineId Id="540" Count="18" />
+      <LineId Id="560" Count="2" />
       <LineId Id="573" Count="9" />
       <LineId Id="31" Count="0" />
     </LineIds>
@@ -743,7 +764,9 @@ SUPER^.Starting();]]></ST>
       <LineId Id="6" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.CyclicLogic">
-      <LineId Id="158" Count="4" />
+      <LineId Id="158" Count="2" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="162" Count="0" />
       <LineId Id="127" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.Execute">
@@ -766,9 +789,14 @@ SUPER^.Starting();]]></ST>
       <LineId Id="11" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.Resetting">
-      <LineId Id="593" Count="1" />
-      <LineId Id="661" Count="21" />
-      <LineId Id="604" Count="2" />
+      <LineId Id="780" Count="30" />
+      <LineId Id="817" Count="1" />
+      <LineId Id="820" Count="0" />
+      <LineId Id="823" Count="0" />
+      <LineId Id="826" Count="0" />
+      <LineId Id="824" Count="1" />
+      <LineId Id="819" Count="0" />
+      <LineId Id="811" Count="5" />
       <LineId Id="29" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.SetupStations">
@@ -780,18 +808,30 @@ SUPER^.Starting();]]></ST>
       <LineId Id="29" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.SetupTrackSegments">
-      <LineId Id="7630" Count="124" />
+      <LineId Id="7630" Count="120" />
+      <LineId Id="7762" Count="1" />
+      <LineId Id="7765" Count="36" />
+      <LineId Id="7813" Count="0" />
+      <LineId Id="7809" Count="3" />
+      <LineId Id="7808" Count="0" />
+      <LineId Id="7802" Count="1" />
+      <LineId Id="7805" Count="2" />
+      <LineId Id="7764" Count="0" />
+      <LineId Id="7751" Count="3" />
       <LineId Id="6083" Count="0" />
     </LineIds>
     <LineIds Name="FB_XPlanar_EM.Starting">
-      <LineId Id="2216" Count="10" />
-      <LineId Id="2349" Count="1" />
-      <LineId Id="2352" Count="1" />
-      <LineId Id="2356" Count="2" />
-      <LineId Id="2351" Count="0" />
-      <LineId Id="2354" Count="1" />
-      <LineId Id="2230" Count="64" />
-      <LineId Id="2296" Count="29" />
+      <LineId Id="2439" Count="23" />
+      <LineId Id="2466" Count="2" />
+      <LineId Id="2470" Count="3" />
+      <LineId Id="2493" Count="5" />
+      <LineId Id="2500" Count="1" />
+      <LineId Id="2499" Count="0" />
+      <LineId Id="2474" Count="9" />
+      <LineId Id="2510" Count="0" />
+      <LineId Id="2503" Count="6" />
+      <LineId Id="2502" Count="0" />
+      <LineId Id="2484" Count="8" />
       <LineId Id="466" Count="0" />
     </LineIds>
   </POU>
